@@ -1,5 +1,6 @@
 # dependencies
 import datetime
+import sys
 
 import h5py
 import matplotlib
@@ -10,27 +11,27 @@ import psutil
 import ray
 import scipy.integrate as integrate # for definite integration
 
-
 import mpltools
 from constants import M_SOL, G
 
 """ constants """
-mach_h = 20                             # 1D Mach number on scale h
-h = 0.1 * 3.086e18                      # length scale h (pc > cm)
+mach_h = 30                             # 1D Mach number on scale h
+h = 800 * 3.086e18                      # length scale h (pc > cm)
 r_small = 1.0
 c_s = 0.2e5                             # sonic speed (cm/s)
-n_0 = 1000                              # mean number density (cm^-3)
+n_0 = 1.0                               # mean number density (cm^-3)
 mu = 2.34e-24                           # mean mass per particle (g)
 rho_0 = n_0 * mu                        # mean mass density (g cm^-3)
-B_mag = 25e-6                           # magnetic field strength (Gauss)
+B_mag = 0                               # magnetic field strength (Gauss)
 v_A = B_mag / np.sqrt(4*np.pi*rho_0)    # Alfven speed (cm/s)
 
+b = np.sqrt(3/4)                        # turbulence driving parameter
 p = 2                                   # negative turbulent velocity PS index
 Q = 1                                   # Toomre parameter
 kappa_tilde = np.sqrt(2)                # ratio of epicyclic and orbital freqs
 
 # dimensionless setup
-dimensionless = True
+dimensionless = False
 if dimensionless :
     h = 1.0
     rho_0 = 1.0
@@ -41,14 +42,13 @@ if dimensionless :
     G = kappa_tilde * ( (mach_h**2 + 1)*c_s**2 + v_A**2 )/(np.sqrt(2)*np.pi*Q)
 
 """ calculation parameters """
-size_start = 3                          # starting scale (= 10^3 h)
-size_end = -5                           # finishing scale (= 10^-4 h)
+size_start = 2                          # starting scale (= 10^3 h)
+size_end = -10                          # finishing scale (= 10^-4 h)
 n_R = 800                               # resolution
 n_path = int(1e8)                       # number of paths
 
 threads = psutil.cpu_count()            # number of threads
 work_size = threads*100
-
 
 """ variables """
 # turbulent velocity dispersion smoothed on R (v_t)
@@ -71,8 +71,8 @@ def sigma_gas(R) :
 
 # density dispersion at size R (sigma_k)
 def sigma_delta(R) :
-    mach_squared_correction = 1 + kappa_tilde**2*mach(h)**2/(h/R)**2
-    sigma_squared = np.log(1 + 0.75*mach(R)**2/mach_squared_correction)
+    kappa = kappa_tilde * sigma_gas(R) / h
+    sigma_squared = np.log(1 + b**2*sigma_t(R)**2/(c_s**2 + kappa**2*R**2))
     return np.sqrt(sigma_squared)
 
 # window function (of k)
@@ -84,14 +84,8 @@ def window(k, R) :
         return 0
 
 # global dispersion of density smoothed at R
-# here we introduce an arbitrary constant k_0 for numerical stability
 def S(R) :
-    if R < 1e-3*h :
-        k_0 = 1e-5*h
-    else :
-        k_0 = h
-    integral = integrate.quad(
-        lambda k: sigma_delta(k_0/k)**2 * window(k/k_0, R) * 1/k, 0, np.inf)
+    integral = integrate.quad(lambda lnk: sigma_delta(1/np.exp(lnk))**2, np.log(1/(h*1e20)), np.log(1/R))
     return integral[0]
 
 # barrier function
@@ -105,9 +99,27 @@ def B(R) :
 
 # mass of collapsing region with size R
 def M(R) :
-    rho_crit = np.exp(B(R)-S(R)/2)*rho_0
-    return ( 4*np.pi*rho_crit*h**3
-            *((R/h)**2/2 + (1+R/h)*np.exp(-R/h) - 1) )
+    ln_rho_crit = (B(R)-S(R)/2) + np.log(rho_0)
+
+    if (R/h > 5e-5) :
+        result = 4*np.pi*np.exp(ln_rho_crit)*h**3
+        result *= R**2/(2*h**2) + (1+R/h)*np.exp(-R/h) - 1
+    else :
+        result = 4*np.pi/3 * np.exp(ln_rho_crit + 3*np.log(R))
+
+    if result == 0.0 :
+        sys.exit("zero mass encountered!")
+    else :
+        return result
+
+# calculate M_sonic
+if p != 1.0 :
+    R_sonic = h*mach_h**(-2/(p-1))
+    #M_sonic = M(R_sonic)
+    M_sonic = 2/3* c_s**2 * R_sonic/G
+else :
+    #R_sonic = h*np.exp(1-mach_h**2)
+    M_sonic = M_SOL
 
 """ subroutines """
 def random_walk(Rs, Ss) :
@@ -186,14 +198,6 @@ if __name__ == "__main__" :
         Bs[i] = B(Rs[i])
         Ms[i] = M(Rs[i])
 
-    # calculate M_sonic
-    if p != 1.0 :
-        R_sonic = h*mach_h**(-2/(p-1))
-        M_sonic = 2/3* c_s**2 * R_sonic/G
-    else :
-        #R_sonic = h*np.exp(1-mach_h**2)
-        M_sonic = M_SOL
-
     print(f"no of points: {n_R}")
     print(f"scale h     : {h}")
     print(f"Mach at h   : {mach_h}")
@@ -229,6 +233,8 @@ if __name__ == "__main__" :
         ax.set_ylabel("overdensity")
         plt.legend(loc="upper right")
         plt.savefig(f"barrier_M{mach_h:.0f}p{p}n{n_R}.pdf")
+
+    sys.exit("finish here for now...")
 
     # begin the simulation
     print("initiating Monte Carlo random walking simulation...")
