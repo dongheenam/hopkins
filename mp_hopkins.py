@@ -15,17 +15,23 @@ import mpltools
 from constants import M_SOL, G
 
 """ constants """
-mach_h = 30                             # 1D Mach number on scale h
-h = 800 * 3.086e18                      # length scale h (pc > cm)
-r_small = 1.0
+mach_h = 10                             # 1D Mach number on scale h
+h = 100 * 3.086e18                      # length scale h (pc > cm)
 c_s = 0.2e5                             # sonic speed (cm/s)
-n_0 = 1.0                               # mean number density (cm^-3)
-mu = 2.34e-24                           # mean mass per particle (g)
+n_0 = 10.0                               # mean number density (cm^-3)
+mu = 2.4 / 6.022e23                     # mean mass per particle (g)
 rho_0 = n_0 * mu                        # mean mass density (g cm^-3)
-B_mag = 0                               # magnetic field strength (Gauss)
-v_A = B_mag / np.sqrt(4*np.pi*rho_0)    # Alfven speed (cm/s)
 
-b = np.sqrt(3/4)                        # turbulence driving parameter
+use_beta = False
+if use_beta :
+    beta = 5.0                          # plasma beta
+    v_A = c_s/np.sqrt(beta)             # Alfven speed
+else :
+    B_mag = 0.0                               # magnetic field strength (Gauss)
+    v_A = B_mag / np.sqrt(4*np.pi*rho_0)      # Alfven speed (cm/s)
+    beta = (c_s/v_A)**2 if v_A!=0 else np.inf # plasma beta
+
+b = 1.0                                 # turbulence driving parameter
 p = 2                                   # negative turbulent velocity PS index
 Q = 1                                   # Toomre parameter
 kappa_tilde = np.sqrt(2)                # ratio of epicyclic and orbital freqs
@@ -35,10 +41,13 @@ dimensionless = False
 if dimensionless :
     h = 1.0
     rho_0 = 1.0
-    beta = 0.5
-    v_A = np.sqrt(1/beta)
     c_s = 1.0
     M_SOL = 1.0
+
+    use_beta = True
+    beta = 0.5
+    v_A = np.sqrt(1/beta)
+
     G = kappa_tilde * ( (mach_h**2 + 1)*c_s**2 + v_A**2 )/(np.sqrt(2)*np.pi*Q)
 
 """ calculation parameters """
@@ -204,6 +213,7 @@ if __name__ == "__main__" :
     print(f"Alfven speed: {v_A:.3E}")
     if v_A != 0.0 :
         print(f"Mach_A at h : {sigma_t(h)/v_A:.3f}")
+        print(f"plasma beta : {beta:.3f}")
     print(f"S_smallest  : {Ss[-1]:.3f}")
     print(f"M_largest   : {Ms[0]/M_SOL:.3E} M_SOL ({Ms[0]/M_sonic:.3E} M_sonic)")
     print(f"M_h         : {M(h)/M_SOL:.3E} M_SOL ({M(h)/M_sonic:.3E} M_sonic)")

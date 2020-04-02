@@ -18,10 +18,7 @@ def sigma_t(R) :
     if R == h :
         return mach_h * c_s
     else :
-        if p != 1.0 :
-            return sigma_t(h) * (R/h)**((p-1)/2)
-        else :
-            return sigma_t(h) * np.sqrt(np.log(R/r_small)/np.log(h/r_small))
+        return sigma_t(h) * (R/h)**((p-1)/2)
 
 # mach number at size R
 def mach(R) :
@@ -31,26 +28,16 @@ def mach(R) :
 def sigma_gas(R) :
     return np.sqrt(sigma_t(R)**2 + c_s**2 + v_A**2)
 
-# density dispersion at size R (sigma_k)
-def sigma_delta(R) :
-    #mach_squared_correction = 1 + kappa_tilde**2*mach(h)**2/(h/R)**2
-    #sigma_squared = np.log(1 + 0.75*mach(R)**2/mach_squared_correction)
-    kappa = kappa_tilde * sigma_gas(R) / h
+# density dispersion squared at size R (sigma_k)
+def sigma_dens_squared(R) :
+    kappa = kappa_tilde * sigma_gas(R)*np.sqrt(3) / h
     sigma_squared = np.log(1 + b**2*sigma_t(R)**2/(c_s**2 + kappa**2*R**2))
-    return np.sqrt(sigma_squared)
-
-# window function (of k)
-def window(k, R) :
-    inside_window = (k < 1/R)
-    if inside_window :
-        return 1
-    else :
-        return 0
+    return sigma_squared
 
 # global dispersion of density smoothed at R
-# here we introduce an arbitrary constant k_0 for numerical stability
 def S(R) :
-    integral = integrate.quad(lambda lnk: sigma_delta(1/np.exp(lnk))**2, np.log(1/(h*1e20)), np.log(1/R))
+    integral = integrate.quad(lambda lnk: sigma_dens_squared(np.exp(-lnk)), np.log(1/h*1e-20), np.log(1/R))
+    #integral = integrate.quad(lambda k: sigma_dens_squared(1/k)/k, 0, 1/R)
     return integral[0]
 
 # barrier function
@@ -58,7 +45,7 @@ def B(R) :
     # rho_crit / rho_0
     dens_ratio = (Q/(2*kappa_tilde)
                  *(1+h/R)
-                 *(sigma_gas(R)**2/sigma_gas(h)**2 * h/R + kappa_tilde**2 * R/h)
+                 *((sigma_gas(R)/sigma_gas(h))**2 * h/R + kappa_tilde**2 * R/h)
                  )
     return np.log(dens_ratio) + S(R)/2
 
@@ -93,14 +80,16 @@ if __name__ == "__main__" :
     ax4 = fig4.add_subplot()
     fig5 = plt.figure()
     ax5 = fig5.add_subplot()
-    for p in [1.001, 4/3, 5/3, 2, 5/2] :
+    #for mach_h, lc in [(0.1,'black'), (1.0, 'blueviolet'), (3.0,'dodgerblue'), (10.0,'skyblue'), (30.0,'springgreen')] :
+    for p, lc in [(1.001,'black'), (1.3,'blueviolet'), (1.7,'dodgerblue'), (2.0,'skyblue'), (2.5,'springgreen')] :
+    #for Q, lc in [(0.5,'black'), (1,'blueviolet'), (2,'dodgerblue'), (5,'skyblue'), (10,'springgreen')] :
+    #for b, lc in [(1/3,'black'), (1/2,'blueviolet'), (1,'dodgerblue')] :
 
         """ constants """
         mach_h = 10                             # 1D Mach number on scale h
-        h = 800 * 3.086e18                      # length scale h (pc > cm)
-        r_small = 1.0
+        h = 100 * 3.086e18                      # length scale h (pc > cm)
         c_s = 0.2e5                             # sonic speed (cm/s)
-        n_0 = 1.0                               # mean number density (cm^-3)
+        n_0 = 10.0                              # mean number density (cm^-3)
         mu = 2.34e-24                           # mean mass per particle (g)
         rho_0 = n_0 * mu                        # mean mass density (g cm^-3)
         B_mag = 0                               # magnetic field strength (Gauss)
@@ -110,21 +99,11 @@ if __name__ == "__main__" :
         #p = 2                                   # negative turbulent velocity PS index
         Q = 1                                   # Toomre parameter
         kappa_tilde = np.sqrt(2)                # ratio of epicyclic and orbital freqs
-        #kappa = Q*np.pi*G*2*rho_0*h / np.sqrt((mach_h*c_s)**2 + c_s**2 + v_A**2)
-
-        # calculate M_sonic
-        if p != 1.0 :
-            R_sonic = h*mach_h**(-2/(p-1))
-            #M_sonic = M(R_sonic)
-            M_sonic = 2/3* c_s**2 * R_sonic/G
-        else :
-            #R_sonic = h*np.exp(1-mach_h**2)
-            M_sonic = M_SOL
 
         """ calculation parameters """
         size_start = 1                          # starting scale (= 10^3 h)
         size_end = -4                           # finishing scale (= 10^-4 h)
-        n_R = 500                               # resolution
+        n_R = 100                               # resolution
 
         # calculate R
         print("calculating R...")
@@ -139,12 +118,24 @@ if __name__ == "__main__" :
             Bs[i] = B(Rs[i])
             Ms[i] = M(Rs[i])
 
-        label = f"p={p:.1f}"
-        ax1.plot(Rs/h, Ms/(rho_0*h**3), label=label)
-        ax2.plot(Rs/h, Ss, label=label)
-        ax3.plot(Rs/h, np.exp((Bs-Ss/2) + np.log(rho_0))/rho_0, label=label)
-        ax4.plot((Rs/h)[1:], np.diff(Bs)/np.diff(Ss), label=label)
-        ax5.plot(Rs/h, Bs/np.sqrt(Ss), label=label)
+        #label= rf"$M={mach_h:.1f}$"
+        label = rf"$p={p:.1f}$"
+        ax1.plot(Rs/h, Ms/(rho_0*h**3), color=lc, label=label)
+        ax2.plot(Rs/h, Ss, color=lc, label=label)
+        ax3.plot(Rs/h, np.exp((Bs-Ss/2)), color=lc, label=label)
+        ax4.plot((Rs/h)[1:], np.diff(Bs)/np.diff(Ss), color=lc, label=label)
+        ax5.plot(Rs/h, Bs/np.sqrt(Ss), color=lc, label=label)
+
+    test_name="p"
+    filenames_csv = [f"test/test_{test_name}_{data}.csv" for data in ["logm", "s", "rhocrit", "dbds"]]
+    for filename_csv, ax in zip(filenames_csv, [ax1, ax2, ax3, ax4]) :
+        x1,y1, x2,y2, x3,y3, x4,y4, x5,y5 = np.genfromtxt(
+            filename_csv, delimiter=',', skip_header=2, unpack=True)
+        ax.plot(x1,y1, ls='--', color='springgreen')
+        ax.plot(x2,y2, ls='--', color='skyblue')
+        ax.plot(x3,y3, ls='--', color='dodgerblue')
+        ax.plot(x4,y4, ls='--', color='blueviolet')
+        ax.plot(x5,y5, ls='--', color='black', label='Hopkins(2013)')
 
     ax1.set_xscale("log")
     ax1.set_yscale("log")
@@ -175,8 +166,8 @@ if __name__ == "__main__" :
     ax5.set_ylim(bottom=1, top=10)
     fig5.legend()
 
-    fig1.savefig("test/p_1logM.pdf")
-    fig2.savefig("test/p_2S.pdf")
-    fig3.savefig("test/p_3rho_crit.pdf")
-    fig4.savefig("test/p_4dB_dS.pdf")
-    fig5.savefig("test/p_5nu.pdf")
+    fig1.savefig(f"test/{test_name}_1logM.pdf")
+    fig2.savefig(f"test/{test_name}_2S.pdf")
+    fig3.savefig(f"test/{test_name}_3rho_crit.pdf")
+    fig4.savefig(f"test/{test_name}_4dB_dS.pdf")
+    fig5.savefig(f"test/{test_name}_5nu.pdf")

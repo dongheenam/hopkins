@@ -12,11 +12,11 @@ from scipy.integrate import quad
 import mpltools
 from constants import M_SOL, G
 from mp_hopkins import mach_h, h, rho_0, v_A, c_s, p, Q, kappa_tilde, \
-                       size_start, size_end, dimensionless
+                       size_start, size_end, use_beta
 from mp_hopkins import S, B, M
 
 """ calculation parameters """
-n_S = 5000
+n_S = 10000
 
 """ probability functions """
 
@@ -46,14 +46,14 @@ def calc_H(S1, S2, dS) :
         return dS/2 * g_2(S1, S2+dS/2)
     else :
         # integration of Taylor expansion near singularity
-        dS1 = dS
-        B1 = interpolate.splev(S1, B_tck, der=0)
-        dB1 = interpolate.splev(S1, B_tck, der=1)
-        ddB1 = interpolate.splev(S1, B_tck, der=2)
+        #dS1 = dS
+        #B1 = interpolate.splev(S1, B_tck, der=0)
+        #dB1 = interpolate.splev(S1, B_tck, der=1)
+        #ddB1 = interpolate.splev(S1, B_tck, der=2)
 
-        int1 = np.sqrt(dS1) * (
-            (-B1+S1*dB1) * (-S1*(dS1+6*S1)+dS1*(B1-S1*dB1)**2) + dS1*S1**3*ddB1
-        ) / (3*np.sqrt(2*np.pi)*S1**3)
+        #int1 = np.sqrt(dS1) * (
+        #    (-B1+S1*dB1) * (-S1*(dS1+6*S1)+dS1*(B1-S1*dB1)**2) + dS1*S1**3*ddB1
+        #) / (3*np.sqrt(2*np.pi)*S1**3)
 
         int2, _ =  quad(lambda Sp: g_2(S1, Sp), S1, S1+dS)
         return int2/2
@@ -135,12 +135,12 @@ if __name__ == "__main__" :
     IMF = calc_IMF(R_meshs, S_meshs, B_meshs, M_meshs, last_crossing)
 
     # export the results
-    if dimensionless :
+    if use_beta :
         from mp_hopkins import beta
         bb = beta
     else :
         from mp_hopkins import B_mag
-        bb = B_mag * 1e6
+        bb = B_mag
     print("preparing to export the IMF...")
     filename_hdf5 = f"M{mach_h:.0f}p{p}B{bb}n{n_S}_dir.hdf5"
 
@@ -152,10 +152,12 @@ if __name__ == "__main__" :
     except RuntimeError:
         print("file already exists!")
         filename_hdf5 = "temp.hdf5"
-        h5 = h5py.File(filename_hdf5, 'w+')
+        h5 = h5py.File(filename_hdf5, 'a')
         h5.create_dataset('M',data=M_meshs)
         h5.create_dataset('IMF',data=IMF)
     finally :
         print(f"data written successfully in {filename_hdf5}!")
         print(f"M_sonic={M_sonic:.6E}")
+        print(f"M_gas={rho_0*h**3:.6E}")
+        print(f"rho_0={rho_0:.6E}")
         h5.close()
