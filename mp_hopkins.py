@@ -15,8 +15,8 @@ import mpltools
 from constants import M_SOL, G
 
 """ constants """
-mach_h = 10                             # 1D Mach number on scale h
-h = 100 * 3.086e18                      # length scale h (pc > cm)
+mach_h = 10                              # 1D Mach number on scale h
+h = 2 * 3.086e18                      # length scale h (pc > cm)
 c_s = 0.2e5                             # sonic speed (cm/s)
 n_0 = 10.0                               # mean number density (cm^-3)
 mu = 2.4 / 6.022e23                     # mean mass per particle (g)
@@ -31,10 +31,12 @@ else :
     v_A = B_mag / np.sqrt(4*np.pi*rho_0)      # Alfven speed (cm/s)
     beta = (c_s/v_A)**2 if v_A!=0 else np.inf # plasma beta
 
-b = 1.0                                 # turbulence driving parameter
+b = 1                                  # turbulence driving parameter
 p = 2                                   # negative turbulent velocity PS index
 Q = 1                                   # Toomre parameter
 kappa_tilde = np.sqrt(2)                # ratio of epicyclic and orbital freqs
+kappa = kappa_tilde * np.sqrt(c_s**2 + (mach_h*c_s)**2 + v_A**2) / (np.sqrt(2)*h)
+
 
 # dimensionless setup
 dimensionless = False
@@ -62,64 +64,55 @@ work_size = threads*100
 """ variables """
 # turbulent velocity dispersion smoothed on R (v_t)
 def sigma_t(R) :
-    if R == h :
-        return mach_h * c_s
-    else :
-        if p != 1.0 :
-            return sigma_t(h) * (R/h)**((p-1)/2)
-        else :
-            return sigma_t(h) * np.sqrt(np.log(R/r_small)/np.log(h/r_small))
-
-# mach number at size R
-def mach(R) :
-    return sigma_t(R) / c_s
+    return mach_h*c_s * (R/h)**((p-1)/2) * (1+ (h/R)**(-2))**((1-p)/4)
 
 # total gas velocity dispersion at size R (sigma_g)
 def sigma_gas(R) :
     return np.sqrt(sigma_t(R)**2 + c_s**2 + v_A**2)
 
-# density dispersion at size R (sigma_k)
-def sigma_delta(R) :
-    kappa = kappa_tilde * sigma_gas(R) / h
-    sigma_squared = np.log(1 + b**2*sigma_t(R)**2/(c_s**2 + kappa**2*R**2))
-    return np.sqrt(sigma_squared)
-
-# window function (of k)
-def window(k, R) :
-    inside_window = (k < 1/R)
-    if inside_window :
-        return 1
-    else :
-        return 0
+# density dispersion squared at size R (sigma_k)
+def sigma_dens_squared(k) :
+    sigma_squared = np.log(1 + b**2*sigma_t(1/k)**2/(c_s**2 + kappa**2/k**2))
+    return sigma_squared
 
 # global dispersion of density smoothed at R
 def S(R) :
-    integral = integrate.quad(lambda lnk: sigma_delta(1/np.exp(lnk))**2, np.log(1/(h*1e20)), np.log(1/R))
+    integral = integrate.quad(lambda lnk: sigma_dens_squared(np.exp(lnk)), np.log(1/h*1e-20), np.log(1/R))
+    #integral = integrate.quad(lambda k: sigma_dens_squared(1/k)/k, 0, 1/R)
     return integral[0]
+
+# rho_crit / rho_0
+def dens_ratio_at_crit(R) :
+    k = h/R
+    dens_ratio = (
+         Q/(2*kappa_tilde) * (1+k)
+        *( (sigma_gas(R)/sigma_gas(h))**2*k + kappa_tilde**2/k ) )
+    return dens_ratio
 
 # barrier function
 def B(R) :
-    # rho_crit / rho_0
-    dens_ratio = (Q/(2*kappa_tilde)
-                 *(1+h/R)
-                 *(sigma_gas(R)**2/sigma_gas(h)**2 * h/R + kappa_tilde**2 * R/h)
-                 )
-    return np.log(dens_ratio) + S(R)/2
+    return np.log(dens_ratio_at_crit(R)) + S(R)/2
 
 # mass of collapsing region with size R
 def M(R) :
-    ln_rho_crit = (B(R)-S(R)/2) + np.log(rho_0)
+    #ln_rho_crit = np.log(dens_ratio_at_crit(R)) + np.log(rho_0)
+    #if (R/h > 5e-5) :
+    #    mass = 4*np.pi*np.exp(ln_rho_crit)*h**3
+    #    mass *= R**2/(2*h**2) + (1+R/h)*np.exp(-R/h) - 1
+    #else :
+    #    mass = 4/3*np.pi*np.exp(ln_rho_crit)*R**3
 
+    rho_crit = dens_ratio_at_crit(R) * rho_0
     if (R/h > 5e-5) :
-        result = 4*np.pi*np.exp(ln_rho_crit)*h**3
-        result *= R**2/(2*h**2) + (1+R/h)*np.exp(-R/h) - 1
+        exp_term = np.exp(-R/h)
     else :
-        result = 4*np.pi/3 * np.exp(ln_rho_crit + 3*np.log(R))
+        exp_term = 1
+    mass = 4*np.pi*rho_crit*h**3 * (R**2/(2*h**2)+(1+R/h)*exp_term-1)
 
-    if result == 0.0 :
+    if mass == 0.0 :
         sys.exit("zero mass encountered!")
     else :
-        return result
+        return mass
 
 # calculate M_sonic
 if p != 1.0 :

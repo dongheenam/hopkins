@@ -13,15 +13,15 @@ import mpltools
 from constants import M_SOL, G
 from mp_hopkins import mach_h, h, rho_0, v_A, c_s, p, Q, kappa_tilde, \
                        size_start, size_end, use_beta
-from mp_hopkins import S, B, M
+from mp_hopkins import S, dens_ratio_at_crit, B, M
 
 """ calculation parameters """
-n_S = 10000
+n_S = 1000
 
 """ probability functions """
 
 def P_0(x, var=1) :
-    if var < 0 :
+    if var <= 0 :
         print(f"{var} is not valid variance")
     return 1/np.sqrt(2*np.pi*var) * np.exp(x**2/(-2*var))
 
@@ -62,7 +62,7 @@ def calc_IMF(Rs, Ss, Bs, Ms, locs_collapse) :
     """ calculate the IMF (dn/dM) based on the collapse prob. dist. """
     dn_dM = np.zeros(len(locs_collapse))
     for i in range(1, len(dn_dM)) :
-        rho_crit = np.exp(Bs[i]-Ss[i]/2)*rho_0
+        rho_crit = dens_ratio_at_crit(Rs[i])*rho_0
         dS_dM = 1/interpolate.splev(Ss[i], M_tck, der=1)
         dn_dM[i] = rho_crit/Ms[i] * locs_collapse[i] * np.abs(dS_dM)
 
