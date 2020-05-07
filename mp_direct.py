@@ -16,7 +16,7 @@ from mp_hopkins import mach_h, h, rho_0, v_A, c_s, p, Q, kappa_tilde, \
 from mp_hopkins import S, dens_ratio_at_crit, B, M
 
 """ calculation parameters """
-n_S = 1000
+n_S = 5000
 
 """ probability functions """
 
@@ -43,7 +43,7 @@ def g_2(S1,S2) :
 
 def calc_H(S1, S2, dS) :
     if S1 != S2 :
-        return dS/2 * g_2(S1, S2+dS/2)
+        return dS/2 * g_2(S1, S2+dS/2), 0
     else :
         # integration of Taylor expansion near singularity
         #dS1 = dS
@@ -55,16 +55,20 @@ def calc_H(S1, S2, dS) :
         #    (-B1+S1*dB1) * (-S1*(dS1+6*S1)+dS1*(B1-S1*dB1)**2) + dS1*S1**3*ddB1
         #) / (3*np.sqrt(2*np.pi)*S1**3)
 
-        int2, _ =  quad(lambda Sp: g_2(S1, Sp), S1, S1+dS)
-        return int2/2
+        int2, error =  quad(lambda Sp: g_2(S1, Sp), S1, S1+dS)
+        return int2/2, error
 
 def calc_IMF(Rs, Ss, Bs, Ms, locs_collapse) :
     """ calculate the IMF (dn/dM) based on the collapse prob. dist. """
     dn_dM = np.zeros(len(locs_collapse))
     for i in range(1, len(dn_dM)) :
-        rho_crit = dens_ratio_at_crit(Rs[i])*rho_0
+        r = Rs[i]/h
+        if (r > 5e-5) :
+            vol = 4*np.pi*h**3 * (r**2/2+(1+r)*np.exp(-r)-1)
+        else :
+            vol = 4/3*np.pi*Rs[i]**3
         dS_dM = 1/interpolate.splev(Ss[i], M_tck, der=1)
-        dn_dM[i] = rho_crit/Ms[i] * locs_collapse[i] * np.abs(dS_dM)
+        dn_dM[i] = 1/vol * locs_collapse[i] * np.abs(dS_dM)
 
     return dn_dM
 
@@ -94,6 +98,18 @@ if __name__ == "__main__" :
     Ms = Ms[S_is_nonzero]
     Ss = Ss[S_is_nonzero]
 
+    plt.figure()
+    plt.plot(Ss, Ms/(rho_0*h**3))
+    plt.yscale("log")
+    plt.axhline(y=5e-3, color='red')
+    plt.savefig("test_SM.pdf")
+
+    plt.figure()
+    plt.plot(Ss, Bs)
+    plt.plot(Ss, 0.7 + 2.5*Ss)
+    plt.ylim(bottom=0, top=12)
+    plt.savefig("test_SB.pdf")
+
     # create a mesh frame for S (from largest to smallest)
     print(f"Range of S: {Ss[0]} to {Ss[-1]}")
     print(f"Range of M: {Ms[0]:.6E} to {Ms[-1]:.6E}")
@@ -113,13 +129,21 @@ if __name__ == "__main__" :
     R_meshs = interpolate.splev(S_meshs, R_tck, der=0)
     print("created the mesh for S and function B(S)!")
 
+    plt.figure()
+    dSdMs = 1/interpolate.splev(S_meshs, M_tck, der=1)
+    plt.plot(M_meshs/(rho_0*h**3), dSdMs)
+    plt.plot(M_meshs[1:]/(rho_0*h**3), np.diff(S_meshs)/np.diff(M_meshs), ls='--')
+    plt.xscale("log")
+    plt.savefig("test_dSdM.pdf")
+
     # evaluate the H matrix
     print("calculating H[n, m]...")
     H = np.zeros((n_S,n_S))
     for n in range(n_S) :
-        for m in range(1, n+1) :
-            H[n, m] = calc_H(S_meshs[n], S_meshs[m], dS)
-        print(f"H[{n},{n}] = {H[n,n]}...", end='\r')
+        for m in range(1, n) :
+            H[n, m], _ = calc_H(S_meshs[n], S_meshs[m], dS)
+        H[n, n], error = calc_H(S_meshs[n], S_meshs[n], dS)
+        print(f"H[{n},{n}] = {H[n,n]:.10f}, rel_error={error:.6E}...", end='\r')
 
     outfile = open("last_crossing.dat", 'w+')
     # put everything together and calculate f_l(S_n)
@@ -152,7 +176,7 @@ if __name__ == "__main__" :
     except RuntimeError:
         print("file already exists!")
         filename_hdf5 = "temp.hdf5"
-        h5 = h5py.File(filename_hdf5, 'a')
+        h5 = h5py.File(filename_hdf5, 'w')
         h5.create_dataset('M',data=M_meshs)
         h5.create_dataset('IMF',data=IMF)
     finally :

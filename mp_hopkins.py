@@ -9,13 +9,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import psutil
 import ray
-import scipy.integrate as integrate # for definite integration
+from scipy import integrate # for definite integration
+from scipy import interpolate
 
 import mpltools
 from constants import M_SOL, G
 
 """ constants """
-mach_h = 10                              # 1D Mach number on scale h
+mach_h = 5                              # 1D Mach number on scale h
 h = 2 * 3.086e18                      # length scale h (pc > cm)
 c_s = 0.2e5                             # sonic speed (cm/s)
 n_0 = 10.0                               # mean number density (cm^-3)
@@ -31,8 +32,8 @@ else :
     v_A = B_mag / np.sqrt(4*np.pi*rho_0)      # Alfven speed (cm/s)
     beta = (c_s/v_A)**2 if v_A!=0 else np.inf # plasma beta
 
-b = 1                                  # turbulence driving parameter
-p = 2                                   # negative turbulent velocity PS index
+b = 0.4                                   # turbulence driving parameter
+p = 1.001                                   # negative turbulent velocity PS index
 Q = 1                                   # Toomre parameter
 kappa_tilde = np.sqrt(2)                # ratio of epicyclic and orbital freqs
 kappa = kappa_tilde * np.sqrt(c_s**2 + (mach_h*c_s)**2 + v_A**2) / (np.sqrt(2)*h)
@@ -56,7 +57,7 @@ if dimensionless :
 size_start = 2                          # starting scale (= 10^3 h)
 size_end = -10                          # finishing scale (= 10^-4 h)
 n_R = 800                               # resolution
-n_path = int(1e8)                       # number of paths
+n_path = int(1e6)                       # number of paths
 
 threads = psutil.cpu_count()            # number of threads
 work_size = threads*100
@@ -103,14 +104,14 @@ def M(R) :
     #    mass = 4/3*np.pi*np.exp(ln_rho_crit)*R**3
 
     rho_crit = dens_ratio_at_crit(R) * rho_0
-    if (R/h > 5e-5) :
-        exp_term = np.exp(-R/h)
+    r = R/h
+    if (r > 5e-5) :
+        mass = 4*np.pi*rho_crit*h**3 * (r**2/2+(1+r)*np.exp(-r)-1)
     else :
-        exp_term = 1
-    mass = 4*np.pi*rho_crit*h**3 * (R**2/(2*h**2)+(1+R/h)*exp_term-1)
+        mass = 4/3*np.pi*rho_crit*R**3
 
     if mass == 0.0 :
-        sys.exit("zero mass encountered!")
+        sys.exit(f"zero mass encountered at: r={r}!")
     else :
         return mass
 
@@ -175,8 +176,8 @@ def calc_IMF(Rs, Ss, Bs, Ms, locs_collapse) :
     """ calculate the IMF (dn/dM) based on the collapse prob. dist. """
     dn_dM = np.zeros(len(locs_collapse))
     for i in range(1, len(dn_dM)) :
-        rho_crit = np.exp(Bs[i]-Ss[i]/2)*rho_0
-        dS_dM = (Ss[i-1]-Ss[i]) / (Ms[i-1]-Ms[i])
+        rho_crit = dens_ratio_at_crit(Rs[i])*rho_0
+        dS_dM = 1/interpolate.splev(Ss[i], M_tck, der=1)
         dn_dM[i] = rho_crit/Ms[i] * locs_collapse[i] * np.abs(dS_dM)
 
     return dn_dM
@@ -213,7 +214,7 @@ if __name__ == "__main__" :
     print(f"M_smallest  : {Ms[-1]/M_SOL:.3E} M_SOL ({Ms[-1]/M_sonic:.3E} M_sonic)")
 
     # print first twenty random walks
-    if True :
+    if False :
         print("plotting the first twenty Monte-Carlo paths...")
         mpltools.mpl_init()
         fig = plt.figure()
@@ -236,8 +237,6 @@ if __name__ == "__main__" :
         ax.set_ylabel("overdensity")
         plt.legend(loc="upper right")
         plt.savefig(f"barrier_M{mach_h:.0f}p{p}n{n_R}.pdf")
-
-    sys.exit("finish here for now...")
 
     # begin the simulation
     print("initiating Monte Carlo random walking simulation...")
@@ -290,6 +289,12 @@ if __name__ == "__main__" :
     print("finished!")
     print(f"time spent: {(t_end-t_start).total_seconds()}s")
 
+    # mesh M in S-space to calculate dS/dM
+    S_is_nonzero = (Ss!=0.0)
+    M_rel = Ms[S_is_nonzero]
+    S_rel = Ss[S_is_nonzero]
+    M_tck = interpolate.splrep(Ss, Ms)
+
     # calculate the IMF
     print("calculating the IMF...")
     IMF = calc_IMF(Rs, Ss, Bs, Ms, locs_collapse)
@@ -304,11 +309,18 @@ if __name__ == "__main__" :
 
     # try whether the data already is there
     try :
-        h5.create_dataset('M',data=Ms/M_sonic)
+        h5 = h5py.File(filename_hdf5, 'a')
+        h5.create_dataset('M',data=Ms)
         h5.create_dataset('IMF',data=IMF)
     except RuntimeError:
-        print("file already exists! appending the data...")
-        h5['IMF'][...] += IMF
+        print("file already exists!")
+        filename_hdf5 = "temp.hdf5"
+        h5 = h5py.File(filename_hdf5, 'a')
+        h5.create_dataset('M',data=Ms)
+        h5.create_dataset('IMF',data=IMF)
     finally :
-        print("data written successfully!")
+        print(f"data written successfully in {filename_hdf5}!")
+        print(f"M_sonic={M_sonic:.6E}")
+        print(f"M_gas={rho_0*h**3:.6E}")
+        print(f"rho_0={rho_0:.6E}")
         h5.close()

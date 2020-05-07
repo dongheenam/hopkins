@@ -66,7 +66,7 @@ if __name__ == "__main__" :
     ax.set_xscale("log")
     ax.set_yscale("log")
     ax.set_xlim(left=1e-8, right=1e2)
-    ax.set_ylim(bottom=1e-2, top=1e1)
+    ax.set_ylim(bottom=1e-2, top=1e0)
 
     ax.set_xlabel(r"$M[\rho_0 h^3]$")
     ax.set_ylabel(r"$M \dfrac{dn}{d\log M}[\rho_0]$")
@@ -81,7 +81,7 @@ if __name__ == "__main__" :
     # plot the IMFs
     M_gas = 9.3702e33
     rho_0 = 3.985e-23
-    plot_imf("M10p2B0.0b1.0n1000_dir.hdf5", ax, norm_x=M_gas, norm_y=rho_0/2.4, binned=False, color='blueviolet', label=r'$p=2, \mathcal{M}_h=10, b=1 \quad (\times 2.4)$')
+    plot_imf("M10p2B0.0n1000_dir.hdf5", ax, norm_x=M_gas, norm_y=rho_0/2.4, binned=False, color='blueviolet', label=r'$p=2, \mathcal{M}_h=10, b=1 \quad (\times 2.4)$')
     plot_imf("M10p2B0.0b0.5n1000_dir.hdf5", ax, norm_x=M_gas, norm_y=rho_0/2.4, binned=False, color='dodgerblue', label=r'$p=2, \mathcal{M}_h=10, b=1/2 \quad (\times 2.4)$')
     plot_imf("M10p2B0.0b0.3n1000_dir.hdf5", ax, norm_x=M_gas, norm_y=rho_0/2.4, binned=False, color='black', label=r'$p=2, \mathcal{M}_h=10, b=1/3 \quad (\times 2.4)$')
 

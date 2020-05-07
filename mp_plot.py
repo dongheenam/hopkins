@@ -32,7 +32,7 @@ def plot_imf(filename, ax, norm_x=1, norm_y=1, binned=True, **kwargs) :
 
     # normalise
     x = M_nonzero/norm_x
-    y = M_nonzero**2*IMF_nonzero/norm_y
+    y = M_nonzero*IMF_nonzero/norm_y
 
     # plot the IMF
     ax.plot(x, y, **kwargs)
@@ -46,23 +46,24 @@ if __name__ == "__main__" :
     # set up the axes
     ax.set_xscale("log")
     ax.set_yscale("log")
-    ax.set_xlim(left=1e-8, right=1e2)
-    ax.set_ylim(bottom=1e-3, top=1)
+    ax.set_xlim(left=1e-5, right=1e2)
+    ax.set_ylim(bottom=1e-5, top=1e2)
 
     ax.set_xlabel(r"$M[\rho_0 h^3]$")
-    ax.set_ylabel(r"$M \dfrac{dn}{d\log M}[\rho_0]$")
+    ax.set_ylabel(r"$\dfrac{dn}{d\log M}[1/h^{3}]$")
 
     # Salpeter slope
-    #x_Sal = np.linspace(1e-4,1e0,10)
-    #ax.plot(x_Sal, x_Sal**(-1.35), color='orange', linewidth=3, ls='--', label='Salpeter')
+    base_Sal = (3e-1, 1e0)
+    x_Sal = np.linspace(1e-2,1e2,10)
+    ax.plot(x_Sal, base_Sal[1]*(x_Sal/base_Sal[0])**(-1.35), color='orange', linewidth=3, ls='--', label='Salpeter')
 
     # plot the IMFs
-    # M_gas = 1.171e39, rho_0 = 3.985e-23
-    #plot_imf("M10p2B0.0n1000_dir.hdf5", ax, norm_x=1.171e39, norm_y=3.985e-23/2.4, binned=False, color='black', label=r'$p=2, \mathcal{M}_h=10, b=1 \quad (\times 2)$')
-    plot_imf("M5p2B0.0n1000_dir.hdf5", ax, norm_x=9.370187E+33, norm_y=3.985e-23/2.4, binned=False, color='dodgerblue', label=r'$p=2, \mathcal{M}_h=5, b=1 \quad (\times 2)$')
-    #plot_imf("M5p2B0.0n5000_dir.hdf5", ax, norm_x=9.370187E+33, norm_y=3.985e-23/2.4, binned=False, color='aquamarine', label=r'$p=2, \mathcal{M}_h=5, b=0.4 \quad (\times 2)$')
-    #plot_imf("M5p1.001B0.0n5000_dir.hdf5", ax, norm_x=9.370187E+33, norm_y=3.985e-23/2.4, binned=False, color='aquamarine', label=r'$p=1, \mathcal{M}_h=5 \quad (\times 2)$')
+    rho_0 = 3.985e-23
+    h = 6.152e18
+    M_gas = rho_0*h**3
+    plot_imf("M5p2B0.0n5000_dir.hdf5", ax, norm_x=M_gas, norm_y=1/h**3, binned=False, lw=3, color='grey', label=r'$p=2, \mathcal{M}_h=5, b=0.4$')
+    plot_imf("M5p1.001B0.0n5000_dir.hdf5", ax, norm_x=M_gas, norm_y=1/h**3, binned=False, lw=3, color='steelblue', label=r'$p=1, \mathcal{M}_h=5, b=0.4$')
 
     # save the plot
-    plt.legend(prop={'size':12}, loc='upper left')
+    plt.legend(prop={'size':12}, loc='upper right')
     plt.savefig("IMF.pdf")
