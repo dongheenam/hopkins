@@ -32,6 +32,7 @@ v_A = B_mag / np.sqrt(4*np.pi*rho_0)
 # epicyclic frequency
 # note this is different to Hopkins (2013) by a factor of sqrt(2)
 # however it is necessary to correctly reproduce Fig.2 of Hopkins (2013)
+# regardless, the IMF is rarely affected by this fix
 kappa = kappa_t * np.sqrt(c_s**2 + (mach_h*c_s)**2 + v_A**2) / (np.sqrt(2)*h)
 
 # re-calculate Toomre Q if necessary
