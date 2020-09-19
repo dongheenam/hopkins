@@ -144,6 +144,9 @@ def calc_H(S1, S2, dS) :
     if S1 != S2 :
         return dS/2*g_2(S1, S2+dS/2), 0
     else :
+        # when S'=S, integrate the value instead since g_2(S, S') diverges as S'->S
+        # this is the most problematic part of the program - this evaluation may fail
+        # depending on the parameters
         value, error = integrate.quad(lambda Sp: g_2(S1, Sp), S1, S1+dS)
         return value/2, error
 
