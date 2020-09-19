@@ -16,7 +16,7 @@ from mp_hopkins import mach_h, h, rho_0, v_A, c_s, p, Q, kappa_tilde, \
 from mp_hopkins import S, dens_ratio_at_crit, B, M
 
 """ calculation parameters """
-n_S = 5000
+n_S = 1500
 
 """ probability functions """
 
@@ -73,15 +73,17 @@ def calc_IMF(Rs, Ss, Bs, Ms, locs_collapse) :
     return dn_dM
 
 if __name__ == "__main__" :
+    print(f"Toomre Q:{Q}")
+
     # calculate R
     print("calculating R...")
     logh = np.log10(h)
     Rs = np.power(10, np.linspace(logh+size_start, logh+size_end, 1000))
 
     # normalisation
-    R_sonic = h*mach_h**(-2/(p-1))
+    #R_sonic = h*mach_h**(-2/(p-1))
     #M_sonic = M(R_sonic)
-    M_sonic = 2/3* c_s**2 * R_sonic/G
+    #M_sonic = 2/3* c_s**2 * R_sonic/G
 
     # calculate S and B
     print("calculating S and B...")
@@ -98,22 +100,10 @@ if __name__ == "__main__" :
     Ms = Ms[S_is_nonzero]
     Ss = Ss[S_is_nonzero]
 
-    plt.figure()
-    plt.plot(Ss, Ms/(rho_0*h**3))
-    plt.yscale("log")
-    plt.axhline(y=5e-3, color='red')
-    plt.savefig("test_SM.pdf")
-
-    plt.figure()
-    plt.plot(Ss, Bs)
-    plt.plot(Ss, 0.7 + 2.5*Ss)
-    plt.ylim(bottom=0, top=12)
-    plt.savefig("test_SB.pdf")
-
     # create a mesh frame for S (from largest to smallest)
     print(f"Range of S: {Ss[0]} to {Ss[-1]}")
     print(f"Range of M: {Ms[0]:.6E} to {Ms[-1]:.6E}")
-    print(f"M_sonic   : {M_sonic:.6E}")
+    #print(f"M_sonic   : {M_sonic:.6E}")
     S_meshs = np.linspace(Ss[-1],Ss[0],n_S)
     #S_meshs = S_meshs[10:-10]
     dS = np.abs(S_meshs[0] - S_meshs[1])
@@ -128,13 +118,6 @@ if __name__ == "__main__" :
     R_tck = interpolate.splrep(Ss, Rs)
     R_meshs = interpolate.splev(S_meshs, R_tck, der=0)
     print("created the mesh for S and function B(S)!")
-
-    plt.figure()
-    dSdMs = 1/interpolate.splev(S_meshs, M_tck, der=1)
-    plt.plot(M_meshs/(rho_0*h**3), dSdMs)
-    plt.plot(M_meshs[1:]/(rho_0*h**3), np.diff(S_meshs)/np.diff(M_meshs), ls='--')
-    plt.xscale("log")
-    plt.savefig("test_dSdM.pdf")
 
     # evaluate the H matrix
     print("calculating H[n, m]...")
@@ -166,7 +149,7 @@ if __name__ == "__main__" :
         from mp_hopkins import B_mag
         bb = B_mag
     print("preparing to export the IMF...")
-    filename_hdf5 = f"M{mach_h:.0f}p{p}B{bb}n{n_S}_dir.hdf5"
+    filename_hdf5 = f"M{mach_h:.1f}p{p}B{bb}n{n_S}_dir.hdf5"
 
     # try whether the data already is there
     try :
@@ -181,7 +164,7 @@ if __name__ == "__main__" :
         h5.create_dataset('IMF',data=IMF)
     finally :
         print(f"data written successfully in {filename_hdf5}!")
-        print(f"M_sonic={M_sonic:.6E}")
+        #print(f"M_sonic={M_sonic:.6E}")
         print(f"M_gas={rho_0*h**3:.6E}")
         print(f"rho_0={rho_0:.6E}")
         h5.close()

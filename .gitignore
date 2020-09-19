@@ -1,5 +1,4 @@
 *.csv
-*/
 *.hdf5
 *.pdf
 *.sh
