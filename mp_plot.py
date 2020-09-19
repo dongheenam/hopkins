@@ -46,24 +46,27 @@ if __name__ == "__main__" :
     # set up the axes
     ax.set_xscale("log")
     ax.set_yscale("log")
-    ax.set_xlim(left=1e-5, right=1e2)
-    ax.set_ylim(bottom=1e-5, top=1e2)
+    ax.set_xlim(left=1e-3, right=2e1)
+    ax.set_ylim(bottom=1e0, top=1e4)
 
     ax.set_xlabel(r"$M[\rho_0 h^3]$")
     ax.set_ylabel(r"$\dfrac{dn}{d\log M}[1/h^{3}]$")
 
     # Salpeter slope
-    base_Sal = (3e-1, 1e0)
-    x_Sal = np.linspace(1e-2,1e2,10)
+    base_Sal = (1e0, 3e2)
+    x_Sal = np.linspace(1e-1,1e1,10)
     ax.plot(x_Sal, base_Sal[1]*(x_Sal/base_Sal[0])**(-1.35), color='orange', linewidth=3, ls='--', label='Salpeter')
 
     # plot the IMFs
     rho_0 = 3.985e-23
     h = 6.152e18
     M_gas = rho_0*h**3
-    plot_imf("M5p2B0.0n5000_dir.hdf5", ax, norm_x=M_gas, norm_y=1/h**3, binned=False, lw=3, color='grey', label=r'$p=2, \mathcal{M}_h=5, b=0.4$')
-    plot_imf("M5p1.001B0.0n5000_dir.hdf5", ax, norm_x=M_gas, norm_y=1/h**3, binned=False, lw=3, color='steelblue', label=r'$p=1, \mathcal{M}_h=5, b=0.4$')
-
+    plot_imf("M1.8p1.9B0.0n1000_dir.hdf5", ax, norm_x=M_gas, norm_y=1/h**3, binned=False, lw=2, color='black', ls='-', label=r'$n=1.9, \mathcal{M}_h=1.8$')
+    plot_imf("M0.5p1.001B0.0n1000_dir.hdf5", ax, norm_x=M_gas, norm_y=1/h**3, binned=False, lw=2, color='blue', ls='-', label=r'$n=1, \mathcal{M}_h=0.5$')
+    plot_imf("M2.9p1.9B0.0n1000_dir.hdf5", ax, norm_x=M_gas, norm_y=1/h**3, binned=False, lw=2, color='black', ls='--', label=r'$n=1.9, \mathcal{M}_h=2.9$')
+    plot_imf("M1.3p1.001B0.0n1000_dir.hdf5", ax, norm_x=M_gas, norm_y=1/h**3, binned=False, lw=2, color='blue', ls='--', label=r'$n=1, \mathcal{M}=1.3$')
+    plot_imf("M5.0p1.9B0.0n1000_dir.hdf5", ax, norm_x=M_gas, norm_y=1/h**3, binned=False, lw=2, color='black', ls=':', label=r'$n=1.9, \mathcal{M}_h=5$')
+    plot_imf("M5.0p1.001B0.0n1000_dir.hdf5", ax, norm_x=M_gas, norm_y=1/h**3, binned=False, lw=2, color='blue', ls=':', label=r'$n=1, \mathcal{M}=5$')
     # save the plot
-    plt.legend(prop={'size':12}, loc='upper right')
+    plt.legend(prop={'size':14}, loc='upper right')
     plt.savefig("IMF.pdf")

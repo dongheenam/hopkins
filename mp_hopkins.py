@@ -16,12 +16,10 @@ import mpltools
 from constants import M_SOL, G
 
 """ constants """
-mach_h = 5                              # 1D Mach number on scale h
-h = 2 * 3.086e18                      # length scale h (pc > cm)
+mach_h = 4.8                              # 1D Mach number on scale h
+h = 3.086e18                            # length scale h (pc > cm)
 c_s = 0.2e5                             # sonic speed (cm/s)
-n_0 = 10.0                               # mean number density (cm^-3)
-mu = 2.4 / 6.022e23                     # mean mass per particle (g)
-rho_0 = n_0 * mu                        # mean mass density (g cm^-3)
+rho_0 = 1.31e-20                        # mean mass density (g cm^-3)
 
 use_beta = False
 if use_beta :
@@ -33,11 +31,11 @@ else :
     beta = (c_s/v_A)**2 if v_A!=0 else np.inf # plasma beta
 
 b = 0.4                                   # turbulence driving parameter
-p = 1.001                                   # negative turbulent velocity PS index
-Q = 1                                   # Toomre parameter
+p = 1.9                                   # negative turbulent velocity PS index
 kappa_tilde = np.sqrt(2)                # ratio of epicyclic and orbital freqs
 kappa = kappa_tilde * np.sqrt(c_s**2 + (mach_h*c_s)**2 + v_A**2) / (np.sqrt(2)*h)
-
+#Q = 1
+Q = ((mach_h*c_s)**2+c_s**2)/(np.sqrt(2)*np.pi*G*rho_0*h**2)   # Toomre parameter
 
 # dimensionless setup
 dimensionless = False
@@ -54,8 +52,8 @@ if dimensionless :
     G = kappa_tilde * ( (mach_h**2 + 1)*c_s**2 + v_A**2 )/(np.sqrt(2)*np.pi*Q)
 
 """ calculation parameters """
-size_start = 2                          # starting scale (= 10^3 h)
-size_end = -10                          # finishing scale (= 10^-4 h)
+size_start = 1                          # starting scale (= 10^3 h)
+size_end = -8                          # finishing scale (= 10^-4 h)
 n_R = 800                               # resolution
 n_path = int(1e6)                       # number of paths
 
@@ -86,8 +84,9 @@ def S(R) :
 def dens_ratio_at_crit(R) :
     k = h/R
     dens_ratio = (
-         Q/(2*kappa_tilde) * (1+k)
-        *( (sigma_gas(R)/sigma_gas(h))**2*k + kappa_tilde**2/k ) )
+         Q/(2*kappa_tilde) * (1+k) *( (sigma_gas(R)/sigma_gas(h))**2*k ) )
+    # without the rotational support
+    #    *( (sigma_gas(R)/sigma_gas(h))**2*k + kappa_tilde**2/k ) )
     return dens_ratio
 
 # barrier function
@@ -116,13 +115,13 @@ def M(R) :
         return mass
 
 # calculate M_sonic
-if p != 1.0 :
-    R_sonic = h*mach_h**(-2/(p-1))
+#if p != 1.0 :
+    #R_sonic = h*mach_h**(-2/(p-1))
     #M_sonic = M(R_sonic)
-    M_sonic = 2/3* c_s**2 * R_sonic/G
-else :
+    #M_sonic = 2/3* c_s**2 * R_sonic/G
+#else :
     #R_sonic = h*np.exp(1-mach_h**2)
-    M_sonic = M_SOL
+    #M_sonic = M_SOL
 
 """ subroutines """
 def random_walk(Rs, Ss) :
@@ -201,6 +200,12 @@ if __name__ == "__main__" :
         Bs[i] = B(Rs[i])
         Ms[i] = M(Rs[i])
 
+    fig = plt.figure()
+    ax = fig.add_subplot()
+    ax.plot(Ms/(rho_0*h**3), Ss)
+    ax.set_xscale("log")
+    fig.savefig("test_SM.pdf")
+
     print(f"no of points: {n_R}")
     print(f"scale h     : {h}")
     print(f"Mach at h   : {mach_h}")
@@ -209,12 +214,12 @@ if __name__ == "__main__" :
         print(f"Mach_A at h : {sigma_t(h)/v_A:.3f}")
         print(f"plasma beta : {beta:.3f}")
     print(f"S_smallest  : {Ss[-1]:.3f}")
-    print(f"M_largest   : {Ms[0]/M_SOL:.3E} M_SOL ({Ms[0]/M_sonic:.3E} M_sonic)")
-    print(f"M_h         : {M(h)/M_SOL:.3E} M_SOL ({M(h)/M_sonic:.3E} M_sonic)")
-    print(f"M_smallest  : {Ms[-1]/M_SOL:.3E} M_SOL ({Ms[-1]/M_sonic:.3E} M_sonic)")
+    #print(f"M_largest   : {Ms[0]/M_SOL:.3E} M_SOL ({Ms[0]/M_sonic:.3E} M_sonic)")
+    #print(f"M_h         : {M(h)/M_SOL:.3E} M_SOL ({M(h)/M_sonic:.3E} M_sonic)")
+    #print(f"M_smallest  : {Ms[-1]/M_SOL:.3E} M_SOL ({Ms[-1]/M_sonic:.3E} M_sonic)")
 
     # print first twenty random walks
-    if False :
+    if True :
         print("plotting the first twenty Monte-Carlo paths...")
         mpltools.mpl_init()
         fig = plt.figure()
@@ -237,6 +242,8 @@ if __name__ == "__main__" :
         ax.set_ylabel("overdensity")
         plt.legend(loc="upper right")
         plt.savefig(f"barrier_M{mach_h:.0f}p{p}n{n_R}.pdf")
+
+    sys.exit("exit here...")
 
     # begin the simulation
     print("initiating Monte Carlo random walking simulation...")
@@ -320,7 +327,7 @@ if __name__ == "__main__" :
         h5.create_dataset('IMF',data=IMF)
     finally :
         print(f"data written successfully in {filename_hdf5}!")
-        print(f"M_sonic={M_sonic:.6E}")
+        #print(f"M_sonic={M_sonic:.6E}")
         print(f"M_gas={rho_0*h**3:.6E}")
         print(f"rho_0={rho_0:.6E}")
         h5.close()
