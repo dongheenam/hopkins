@@ -16,7 +16,7 @@ import mpltools
 from constants import M_SOL, G
 
 """ constants """
-mach_h = 4.8                              # 1D Mach number on scale h
+mach_h = 5.0                              # 1D Mach number on scale h
 h = 3.086e18                            # length scale h (pc > cm)
 c_s = 0.2e5                             # sonic speed (cm/s)
 rho_0 = 1.31e-20                        # mean mass density (g cm^-3)
@@ -31,7 +31,7 @@ else :
     beta = (c_s/v_A)**2 if v_A!=0 else np.inf # plasma beta
 
 b = 0.4                                   # turbulence driving parameter
-p = 1.9                                   # negative turbulent velocity PS index
+p = 2.0                                   # negative turbulent velocity PS index
 kappa_tilde = np.sqrt(2)                # ratio of epicyclic and orbital freqs
 kappa = kappa_tilde * np.sqrt(c_s**2 + (mach_h*c_s)**2 + v_A**2) / (np.sqrt(2)*h)
 #Q = 1

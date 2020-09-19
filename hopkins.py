@@ -17,18 +17,24 @@ pc = 3.086e18        # parsec [cm]
 c_s = 2e4            # isothermal sound speed [cm/s]
 
 """ physical parameters """
-h = 2*pc             # characteristic length [cm]
+h = 1*pc             # characteristic length [cm]
 p = 2.0              # negative velocity PS index
-mach_h = 5           # characteristic Mach number
+mach_h = 5           # characteristic (3D) Mach number, as in Hopkins (2013)
 b = 0.4              # turbulence driving parameter
 B_mag = 0.0          # magnetic field [Gauss]
 Q = 1.0              # Toomre parameter
 kappa_t = np.sqrt(2) # ratio of epicyclic and orbital frequency
 rho_0 = 1.31e-20     # mean mass density [g cm^-3]
 
-# calculate Alfven speed, kappa and Toomre Q (if asked to)
+# Alfven speed
 v_A = B_mag / np.sqrt(4*np.pi*rho_0)
+
+# epicyclic frequency
+# note this is different to Hopkins (2013) by a factor of sqrt(2)
+# however it is necessary to correctly reproduce Fig.2 of Hopkins (2013)
 kappa = kappa_t * np.sqrt(c_s**2 + (mach_h*c_s)**2 + v_A**2) / (np.sqrt(2)*h)
+
+# re-calculate Toomre Q if necessary
 if vary_Q :
     Q = ((mach_h*c_s)**2+c_s**2+v_A**2)/(np.sqrt(2)*np.pi*G*rho_0*h**2)
 
@@ -40,7 +46,7 @@ n_S = 1500           # number of mesh points for S-parametrisation
 small_k = 1/h*1e-20  # lower limit of k when integrating in k-space
 
 
-""" functions for calculating the parameters appearing in Hopkins (2012) """
+""" functions for calculating the parameters appearing in Hopkins (2013) """
 
 def sigma_t(R) :
     """ turbulent velocity dispersion smoothed on R (v_t) """
@@ -66,12 +72,12 @@ def dens_ratio_at_crit(R) :
     if rot_supp :
         dens_ratio = (
             Q/(2*kappa_t) * (1+k)
-            * ( (sigma_gas(R)/sigma_gas(h))**2*k ) 
+            * ( (sigma_gas(R)/sigma_gas(h))**2*k + kappa_t**2/k )
         )
     else :
         dens_ratio = (
             Q/(2*kappa_t) * (1+k)
-            * ( (sigma_gas(R)/sigma_gas(h))**2*k + kappa_t**2/k ) 
+            * ( (sigma_gas(R)/sigma_gas(h))**2*k )
         )
     return dens_ratio
 
@@ -204,7 +210,7 @@ if __name__ == "__main__" :
 
     # export the IMF
     print("exporting the IMF...")
-    filename_hdf5 = f"M{mach_h:.1f}p{p}B{bb}n{n_S}_dir.hdf5"
+    filename_hdf5 = f"M{mach_h:.1f}p{p}B{B_mag}n{n_S}_dir.hdf5"
     try :
         h5 = h5py.File(filename_hdf5, 'a')
         h5.create_dataset('M',data=M_meshs)
