@@ -29,8 +29,8 @@ rho_0 = 1.31e-20     # mean mass density [g cm^-3]
 v_A = B_mag / np.sqrt(4*np.pi*rho_0)
 
 # epicyclic frequency
-# note this is different to Hopkins (2013) by a factor of sqrt(2)
-# however it is necessary to correctly reproduce Fig.2 of Hopkins (2013)
+# note this is different from Hopkins (2013) by a factor of sqrt(2)
+# however this factor is necessary to correctly reproduce Fig.2 of Hopkins (2013)
 # regardless, the IMF is rarely affected by this fix
 kappa = kappa_t * np.sqrt(c_s**2 + (mach_h*c_s)**2 + v_A**2) / (np.sqrt(2)*h)
 
@@ -196,7 +196,6 @@ if __name__ == "__main__" :
             H[n, m], _ = calc_H(S_meshs[n], S_meshs[m], dS)
         H[n, n], error = calc_H(S_meshs[n], S_meshs[n], dS)
         print(f"H[{n},{n}] = {H[n,n]:.10f}, rel_error={error:.6E}...", end='\r')
-
     print("finished calculating H!")
 
     # put everything together and calculate f_l(S_n)
